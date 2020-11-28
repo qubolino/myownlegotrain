@@ -4,6 +4,13 @@ repository of arduino code for rc functionalities of my rc lego train, and of op
 
 ![own lego-like rc](pics/IMG_6296.jpg)
 
-code for the remote and receiver (using esp-now) are in src folder
+arduino code for the remote and receiver (using esp-now) are in src folder
 
-code for parts in parts folder
+openscad code for parts and some stl files are in parts folder
+
+list of sourced parts:
+- lego motor bogie
+- rotary encoder
+- esp32
+- AMS1117
+- L9110H bridge
