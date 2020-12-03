@@ -41,6 +41,40 @@ TFT_eSPI display = TFT_eSPI(135, 240); // Invoke custom library
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RST);
 #endif
 
+void display_value(int val){
+
+    val = min(9, max(-9, val));
+
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.setTextSize(3);
+    display.print("   "); display.println(abs(val));
+
+
+    display.setTextSize(1);
+    if(val > 0){
+      display.print(" ");
+      for (int i=9;i>val;i--){
+        display.print(" ");
+      }
+      for(int j=val; j>0; j--){
+        display.print("<");
+      }
+    }
+    else if (val < 0){
+      display.print("           ");
+      for(int i=0;i>val;i--){
+        display.print(">");
+      }
+    }
+
+    display.display();
+}
+
+
+#define VBAT_PIN 34
+float v_bat;  // battery voltage from ESP32 ADC read
+#define LED_BLUE 2
 
 #include <Button2.h>
 
@@ -54,8 +88,8 @@ Button2 btn1(BUTTON_1);
 // uint8_t remoteAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
 uint8_t remoteAddress[] = {0x8C, 0xAA, 0xB5, 0x86, 0x87, 0xE4}; // TTGO LoRa
 // uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA8, 0x3D, 0x94}; // DOIT
-uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0x95, 0xA3, 0xA0}; // DOIT
-// CC:50:E3:95:A3:A0
+// uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0x95, 0xA3, 0xA0}; // DOIT
+uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA1, 0x3F, 0x50}; // DOIT
 
 typedef struct message {
   char a[32];
@@ -78,7 +112,11 @@ void send(int a_speed){
   esp_err_t result = esp_now_send(trainAddress, (uint8_t *) &mess, sizeof(mess));
    
   if (result == ESP_OK) {
-    Serial.println("Sent with success");
+    // Serial.println("Sent with success");
+    digitalWrite(LED_BLUE, 1);
+    delay(100);
+    digitalWrite(LED_BLUE, 0);
+
   }
   else {
     Serial.println("Error sending the data");
@@ -90,18 +128,12 @@ void send(int a_speed){
  #define PIN_A 13
  #define PIN_B 14
 
-// #include <ClickEncoder.h>
-// ClickEncoder encoder = ClickEncoder(PIN_A, PIN_B, 17, 2);
-
-// #include <Encoder.h>
-// Encoder encoder(PIN_A, PIN_B);
-
 #include <ESP32Encoder.h>
 ESP32Encoder encoder;
 
 
 
-int16_t last, value;
+int last, value;
 
 
 void setup(void) {
@@ -132,21 +164,21 @@ void setup(void) {
 
   display.clearDisplay();
   display.setTextColor(WHITE);
-  display.setTextSize(1);
   display.setCursor(0,0);
   display.println("Initializing...");
   display.display();
   
 #endif
 
+
+  pinMode(VBAT_PIN, INPUT);
+  pinMode(LED_BLUE, OUTPUT);
+
   btn1.setPressedHandler([](Button2 & b) {
 	  encoder.setCount(0);
     last = value = 0;
     send(value);
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.print("Speed: "); display.println(0);
-    display.display();
+    display_value(value/2);
   });
 
   WiFi.mode(WIFI_MODE_STA);
@@ -173,44 +205,26 @@ void setup(void) {
   send(0);
 
 
-  // encoder.setButtonHeldEnabled(true);
-  // encoder.setDoubleClickEnabled(true);
-
 	encoder.attachHalfQuad(PIN_A,PIN_B);
 }
   
 
 void loop() {
-  //Call Service in loop becasue using timer interrupts may affect ESP8266 WIFI
-  //however call no more than 1 time per millisecond to reduce encoder bounce
-  // static uint32_t lastService = 0;
-  // if (lastService + 1000 < micros()) {
-  //   lastService = micros();                
-  //   encoder.service();  
-  // }
- 
-  // value = encoder.getValue();
 
-	// Serial.println("Encoder count = "+String((int32_t)encoder.getCount()));
-	// delay(100);
   value = encoder.getCount();
   if (value != last) {
     last = value;
 
-    // int speed = -value * 3;
-    // if (speed > 0){
-    //   speed += 150;
-    // } else if (speed < 0) {
-    //   speed -= 150;
-    // }
+    // value -20 --> 20
+    value =  min(20,max(-20, value));
+    encoder.setCount(value);
 
-    int speed = -3 * value - (value>0?1:-1) * 150;
+    int speed = -5 * value - (value>0?1:(value<0?-1:0)) * 155;
+
+
     send(speed);
+    display_value(value/2);
 
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.print("Speed: "); display.println(speed);
-    display.display();
   }
   
   btn1.loop();
