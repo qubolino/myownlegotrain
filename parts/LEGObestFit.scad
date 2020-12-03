@@ -35,82 +35,12 @@ V1.8 - added capability to have raised text instead of embossed text
 
 */
 
-/*
-   Set default brick to be #2456 6x2 
-*/
-/* [Brick Parameters] */
-
-// Brick length (specified in number of studs).
-brickLength = 2; // [1:1:48]
-
-// Brick width (specified in number of studs).
-brickWidth = 1;  // [1:1:48]
-
-// Brick height (specified in LEGO height units: 3 is normal brick height, 1 is plate height).
-brickHeight = 1; // [1:1:18]
-
-// Studs on top of the brick?
-withStuds = "yes"; // [yes,no]
-createStuds = (withStuds=="yes") ? true : false;
-
-// Under-studs on underneath of skinny bricks? Skinny bricks that are only one unit wide have smaller solid cylinders (under-studs) underneath instead of the usual hollow cylinders. These have a tiny footprint and may not stick to the build-plate, so you may want to avoid printing them.
-withUnderStuds = "yes"; // [yes,no]
-createUnderStuds = (withUnderStuds=="yes") ? true : false;
-
-
-/* [Text Parameters] */
-
-// Raised text instead of embossed text?
-raisedText = "no"; // [yes,no]
-textRaised = (raisedText=="yes") ? true : false;
-
-frontText = "";
-frontTextScale = 1.0; // [0:0.01:1]
-
-backText = "";
-backTextScale = 1.0; // [0:0.01:1]
-
-leftText = ""; 
-leftTextScale = 1.0; // [0:0.01:1]
-
-rightText = ""; 
-rightTextScale = 1.0; // [0:0.01:1]
 
 /* [Advanced parameters] */
 
 // Tolerance to account for 3D printing inaccuracies (mm). This decreases the sizes of all vertical surfaces (brick walls, studs, under-tubes, and under-studs) to provide a better fit. It is equivalent to a negative horizontal expansion setting in the Cura slicer. You might want to decrease this for bricks that are only 1 unit wide without under-studs as they will be naturally looser fitting than other bricks. The best setting is printer/filament dependent so I've set the default for my printer on the assumption that it's average. 
 tolerance = 0.05; // [0:0.01:0.1]
 
-// Some suitable fonts
-//fontName = "Arial Black:style=Regular";    // Not available on Thingiverse customizer
-//fontName = "Biryani:style=Black";          // Has short numbers
-//fontName = "Heebo:style=Black";            // Has tight kerning
-//fontName = "Maven Pro:style=Black";        // Has tight spacing on "g"
-//fontName = "Nunito Sans:style=Black";      // Has tight kerning
-//fontName = "Orbitron:style=Black";         // Has blocky letters
-//fontName = "Palanquin Dark:style=Bold";    // Has descended numbers
-//fontName = "Raleway:style=Black";          // Has descended numbers
-//fontName = "Roboto:style=Black";           // No issues
-//fontName = "Yantramanav:style=Black";      // No issues
-
-
-// Choose from a small selection of similar fonts that should work well in this application (NOTE: Arial is not available on Thingiverse).
-fontName = 9; // [2:Biryani Black, 3:Heebo Black, 4:Maven Pro Black, 5:Nunito Sans Black, 6:Orbitron Black, 7:Palanquin Dark Bold, 8:Raleway Black, 9:Roboto Black, 10:Yantramanav Black, 0:other, 1:Arial Black]
-
-// If "other" is selected above, you can specify any font available from the Google fonts repository . See https://fonts.google.com/ for available fonts. For example, specify "Overpass Mono:style=Bold" to allow entering some special symbols like heart, club, etc.
-otherFont = "Overpass Mono";
-
-// The base size of the text on all sides (can be scaled down in the text parameters section).
-textSize = 5.5; // [1:0.1:10]
-
-// Spacing between letters. (ratio: 1 is normal spacing of the font) It's better to have this a little higher for this application.
-letterSpacing = 1.05;  // [0.9:0.01:2.0]
-
-// How much to shift the text in the Z dimension (mm).
-textZShift = 2.0;         // [-5:0.1:8]
-
-// The depth of the text (mm). You should probably decrease this from the default of 0.8 if you plan on scaling the model up in your slicer.
-textDepth = 0.8;  // [0.2:0.01:1.0]
 
 // Resolution of circles. 50 fragments is more than enough for such a small cylinders unless the model will be later scaled up
 numberFragments = 50;                 // [6:1:100] 
@@ -151,21 +81,10 @@ PLAY = 0.2; // [0.02:0.01:2]
 /* [Hidden] */
 fudge = 0.01;               // Amount to expand some dimensions to ensure manifold model
 
-// This convoluted way of selecting the font from an array was a requirement introduced by a change
-// on the Thingiverse customizer that broke the ability to directly select fonts with a style specified.
-// This issue was first noticed 2010-02-26 and probably happened within the two months prior to that date.
-fontNames = ["other", "Arial Black:style=Regular", "Biryani:style=Black", "Heebo:style=Black", "Maven Pro:style=Black", "Nunito Sans:style=Black", "Orbitron:style=Black", "Palanquin Dark:style=Bold", "Raleway:style=Black", "Roboto:style=Black", "Yantramanav:style=Black"];
-
-selectedFont = (fontName==0) ? otherFont : fontNames[fontName];
-
-textBack = textRaised ? 0 : textDepth;
 
 
 
-%translate([0,0,PLATE_HEIGHT*(3*3-1)])brick(4,1,1, true, false);
-%brick(4,1,1, false, true);
-translate([PLAY/2+tolerance, PLAY/2+tolerance ,PLATE_HEIGHT])
-    cube([8*4-PLAY-2*tolerance,1.5-PLAY,PLATE_HEIGHT*(3*3-1)]);
+brick(2,1,1, true, true);
 
 /*
    Module to make a simple rectangular LEGO compatible brick
@@ -224,14 +143,3 @@ module brick(length=4, width=2, height=3, createStuds=true, createUnderStuds=tru
 
 }
 
-module makeText () {
-  translate([0, -brickWidth/2*UNIT_LENGTH+textBack+PLAY/2+tolerance, textZShift]) rotate([90, 0, 0])
-    linear_extrude(textDepth+fudge) text(frontText, font=selectedFont, size=textSize*frontTextScale, halign="center", spacing=letterSpacing);
-  translate([0, brickWidth/2*UNIT_LENGTH-textBack-PLAY/2-tolerance, textZShift]) rotate([90, 0, 180])
-    linear_extrude(textDepth+fudge) text(backText, font=selectedFont, size=textSize*backTextScale, halign="center", spacing=letterSpacing);
-  translate([-brickLength/2*UNIT_LENGTH+textBack+PLAY/2+tolerance, 0, textZShift]) rotate([90, 0, 270])
-    linear_extrude(textDepth+fudge) text(leftText, font=selectedFont, size=textSize*leftTextScale, halign="center", spacing=letterSpacing);
-  translate([brickLength/2*UNIT_LENGTH-textBack-PLAY/2-tolerance, 0, textZShift]) rotate([90, 0, 90])
-    linear_extrude(textDepth+fudge) text(rightText, font=selectedFont, size=textSize*rightTextScale, halign="center", spacing=letterSpacing);
-}
-	
