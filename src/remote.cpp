@@ -1,31 +1,34 @@
 #include <Arduino.h>
+#include <Wire.h>
 
-// #define TFT
+#define SSD1306
 
-#ifdef TFT
-/*  
- Test the tft.print() viz embedded tft.write() function
- This sketch used font 2, 4, 7
- 
- Make sure all the display driver and pin comnenctions are correct by
- editting the User_Setup.h file in the TFT_eSPI library folder.
- Note that yield() or delay(0) must be called in long duration for/while
- loops to stop the ESP8266 watchdog triggering.
- #########################################################################
- ###### DON'T FORGET TO UPDATE THE User_Setup.h FILE IN THE LIBRARY ######
- #########################################################################
- */
-#include <TFT_eSPI.h> // Graphics and font library for ST7735 driver chip
+#if defined(ST7735)
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7735.h> // Hardware-specific library
 #include <SPI.h>
 
-TFT_eSPI display = TFT_eSPI(135, 240); // Invoke custom library
+// For the breakout, you can use any 2 or 3 pins
+// These pins will also work for the 1.8" TFT shield
+#define TFT_CS 16
+#define TFT_RST -1  // you can also connect this to the Arduino reset
+                      // in which case, set this #define pin to -1!
+#define TFT_DC 17
 
-#define TFT_GREY 0x5AEB // New colour
-#define TFT_BL          4  // Display backlight control pin
+// Option 1 (recommended): must use the hardware SPI pins
+// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
+// an output. This is much faster - also required if you want
+// to use the microSD card (see the image drawing example)
+//Adafruit_ST7735 screen = Adafruit_ST7735(TFT_CS,  TFT_DC, TFT_RST);
 
-#define TFT_BACKLIGHT_ON HIGH
+// Option 2: use any pins but a little slower!
+#define TFT_SCLK 5   // set these to be whatever pins you like!
+#define TFT_MOSI 23   // set these to be whatever pins you like!
+Adafruit_ST7735 screen = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_MOSI, TFT_SCLK, TFT_RST);
 
-#else
+#define TFT_BL      27
+
+#elif defined(SSD1306)
 //Libraries for OLED Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -38,58 +41,65 @@ TFT_eSPI display = TFT_eSPI(135, 240); // Invoke custom library
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RST);
+Adafruit_SSD1306 screen(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RST);
+
 #endif
 
-void display_value(int val){
 
-    val = min(9, max(-9, val));
+void display_value(int value, int real_value) {
+#if defined(ST7735)
+  screen.fillScreen(ST7735_BLACK);
+#elif defined(SSD1306)
+  screen.clearDisplay();
+#endif
 
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.setTextSize(3);
-    display.print("   "); display.println(abs(val));
+  screen.setCursor(0, 0);
+  screen.setTextSize(3);
+  screen.print("   "); screen.println(abs(value));
 
 
-    display.setTextSize(1);
-    if(val > 0){
-      display.print(" ");
-      for (int i=9;i>val;i--){
-        display.print(" ");
-      }
-      for(int j=val; j>0; j--){
-        display.print("<");
-      }
+  screen.setTextSize(1);
+  if(value < 0){
+    screen.print(" ");
+    for (int i=-9;i<value;i++){
+      screen.print(" ");
     }
-    else if (val < 0){
-      display.print("           ");
-      for(int i=0;i>val;i--){
-        display.print(">");
-      }
+    for(int j=value; j<0; j++){
+      screen.print("<");
     }
+  }
+  else if (value > 0){
+    screen.print("           ");
+    for(int i=0;i<value;i++){
+      screen.print(">");
+    }
+  }
 
-    display.display();
+  screen.println();
+  screen.println(real_value);
+
+  screen.display();
+
 }
 
 
-#define VBAT_PIN 34
-float v_bat;  // battery voltage from ESP32 ADC read
-#define LED_BLUE 2
+
+
+
 
 #include <Button2.h>
 
 #define BUTTON_1        17
 Button2 btn1(BUTTON_1);
+#define BUTTON_2        14
+Button2 btn2(BUTTON_2);
+#define BUTTON_3        12
+Button2 btn3(BUTTON_3);
 
 
 #include "WiFi.h"
 #include <esp_now.h>
 
-// uint8_t remoteAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
-uint8_t remoteAddress[] = {0x8C, 0xAA, 0xB5, 0x86, 0x87, 0xE4}; // TTGO LoRa
-// uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA8, 0x3D, 0x94}; // DOIT
-// uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0x95, 0xA3, 0xA0}; // DOIT
-uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA1, 0x3F, 0x50}; // DOIT
 
 typedef struct message {
   char a[32];
@@ -98,101 +108,138 @@ typedef struct message {
   String d;
   bool e;
 } message;
-message mess;
 
-void send(int a_speed){
-    // Set values to send
-  strcpy(mess.a, "THIS IS A CHAR");
-  mess.b = a_speed;
-  mess.c = 1.2;
-  mess.d = "Hello";
-  mess.e = false;
+template<class T> inline Print &operator <<(Print &obj, T arg) { obj.print(arg); return obj; }
 
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(trainAddress, (uint8_t *) &mess, sizeof(mess));
-   
-  if (result == ESP_OK) {
-    // Serial.println("Sent with success");
-    digitalWrite(LED_BLUE, 1);
-    delay(100);
-    digitalWrite(LED_BLUE, 0);
 
-  }
-  else {
-    Serial.println("Error sending the data");
-  }
+class ControlledDevice {
+  private :
+    message mess;
+    int value_cap;
+    int value_multiplier;
+    int value_offset;
+
+  public:
+    uint8_t* address;
+    int value;
+    int last_value;
+
+    ControlledDevice(uint8_t* an_address, int a_cap, int a_multiplier, int an_offset) {
+      this->last_value = this->value = 0;
+      this->address = an_address;
+      this->value_cap = a_cap;
+      this->value_multiplier = a_multiplier;
+      this->value_offset = an_offset;
+
+      strcpy(this->mess.a, "THIS IS A CHAR");
+      this->mess.b = this->value;
+      this->mess.c = 1.2;
+      this->mess.d = "Hello";
+      this->mess.e = false;
+    }
+
+    void inc_value(){
+      this->value = max(min(this->value+1, this->value_cap), -this->value_cap);
+      if (this->value != this->last_value) {
+        // trigger change
+        this->send_value();
+        display_value(this->value, this->last_value);
+        this->last_value = this->value;
+      }
+    }
+    void dec_value(){
+      this->value = max(min(this->value-1, this->value_cap), -this->value_cap);
+      if (this->value != this->last_value) {
+        // trigger change
+        this->send_value();
+        display_value(this->value, this->last_value);
+        this->last_value = this->value;
+      }
+    }
+    void neutral(){
+      this->value = max(min(0, this->value_cap), -this->value_cap);
+      if (this->value != this->last_value) {
+        // trigger change
+        this->send_value();
+        display_value(this->value, this->last_value);
+        this->last_value = this->value;
+      }
+    }
+    void send_value(){
+
+      int value_to_send = this->value * this->value_multiplier + (this->value>0?1:(this->value<0?-1:0)) * this->value_offset;
+      this->mess.b = value_to_send;
+
+      Serial << "sending " << value_to_send << " (value " << this->value << ") "; 
+
+      // Send message via ESP-NOW
+      esp_err_t result = esp_now_send(this->address, (uint8_t *) &this->mess, sizeof(this->mess));
+      
+      Serial << ( (result == ESP_OK)? " OK\n": " ERR\n");
+    }
+};
+
+
+
+
+// uint8_t ad[] =  {0xCC, 0x50, 0xE3, 0xA1, 0x3F, 0x50}; // DOIT
+// ControlledDevice cur_device(ad, 9, 5, 155);
+
+uint8_t ad[] =  {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
+ControlledDevice cur_device(ad, 9, 5, 155);
+
+// 24:A1:60:2E:07:89  WEMOS D1 Mini (1)
+// ControlledDevice cur_device(ad, 1, 255, 1);
+
+
+void stop_handler(Button2& btn) {
+    switch (btn.getClickType()) {
+        case SINGLE_CLICK:
+            cur_device.neutral();
+            break;
+        // case DOUBLE_CLICK:
+        //     Serial.print("double ");
+        //     break;
+        case TRIPLE_CLICK:
+            Serial.println("stopping all devices");
+            break;
+        case LONG_CLICK:
+            cur_device.neutral();
+            break;
+    }
 }
-
-
-// Rotary Encoder 
- #define PIN_A 13
- #define PIN_B 14
-
-#include <ESP32Encoder.h>
-ESP32Encoder encoder;
-
-
-
-int last, value;
 
 
 void setup(void) {
 
   Serial.begin(115200);
 
-#ifdef TFT
-  tft.init();
-  tft.setRotation(1);
-
-  if (TFT_BL > 0) { // TFT_BL has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
-    pinMode(TFT_BL, OUTPUT); // Set backlight pin to output mode
-    digitalWrite(TFT_BL, TFT_BACKLIGHT_ON); // Turn backlight on. TFT_BACKLIGHT_ON has been set in the TFT_eSPI library in the User Setup file TTGO_T_Display.h
-  }
-#else
-  //reset OLED display via software
-  pinMode(OLED_RST, OUTPUT);
-  digitalWrite(OLED_RST, LOW);
-  delay(20);
-  digitalWrite(OLED_RST, HIGH);
-
-  //initialize OLED
-  Wire.begin(OLED_SDA, OLED_SCL);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3c, false, false)) { // Address 0x3C for 128x32
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
-  }
-
-  display.clearDisplay();
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.println("Initializing...");
-  display.display();
-  
-#endif
-
-
-  pinMode(VBAT_PIN, INPUT);
-  pinMode(LED_BLUE, OUTPUT);
 
   btn1.setPressedHandler([](Button2 & b) {
-	  encoder.setCount(0);
-    last = value = 0;
-    send(value);
-    display_value(value/2);
+    cur_device.dec_value();
   });
+  btn3.setPressedHandler([](Button2 & b) {
+    cur_device.inc_value();
+  });
+
+
+  btn2.setClickHandler(stop_handler);
+  btn2.setLongClickHandler(stop_handler);
+  btn2.setDoubleClickHandler(stop_handler);
+  btn2.setTripleClickHandler(stop_handler);
+
 
   WiFi.mode(WIFI_MODE_STA);
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
+    Serial << "Error initializing ESP-NOW\n";
     return;
   }
-  display.print("MAC "); display.println(WiFi.macAddress());
-  display.display();
+  Serial.print("MAC "); Serial.println(WiFi.macAddress());
 
 
   // Register peer
   esp_now_peer_info_t peerInfo;
-  memcpy(peerInfo.peer_addr, trainAddress, 6);
+  memcpy(peerInfo.peer_addr, cur_device.address, 6);
   peerInfo.channel = 0;  
   peerInfo.encrypt = false;
   
@@ -202,32 +249,65 @@ void setup(void) {
     return;
   }
 
-  send(0);
+  cur_device.send_value();
 
 
-	encoder.attachHalfQuad(PIN_A,PIN_B);
+
+#if defined(ST7735)
+  // Use this initializer if you're using a 1.8" TFT
+  // screen.initR(INITR_BLACKTAB);   // initialize a ST7735S chip, black tab
+
+  // Use this initializer (uncomment) if you're using a 1.44" TFT
+  screen.initR(INITR_144GREENTAB);   // initialize a ST7735S chip, black tab
+
+  // Use this initializer (uncomment) if you're using a 0.96" 180x60 TFT
+  //screen.initR(INITR_MINI160x80);   // initialize a ST7735S chip, mini display
+
+  Serial.println("Initialized");
+
+    if (TFT_BL > 0) {
+        pinMode(TFT_BL, OUTPUT);
+        digitalWrite(TFT_BL, HIGH);
+    }
+
+
+  uint16_t time = millis();
+  screen.fillScreen(ST7735_BLACK);
+  time = millis() - time;
+
+#elif defined(SSD1306)
+  //reset OLED display via software
+  pinMode(OLED_RST, OUTPUT);
+  digitalWrite(OLED_RST, LOW);
+  delay(20);
+  digitalWrite(OLED_RST, HIGH);
+
+  //initialize OLED
+  Wire.begin(OLED_SDA, OLED_SCL);
+  if(!screen.begin(SSD1306_SWITCHCAPVCC, 0x3c, false, false)) { // Address 0x3C for 128x32
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+  screen.clearDisplay();
+
+#endif
+
+
+  screen.setCursor(0, 0);
+  screen.setTextColor(WHITE);
+  screen.println("Hello Dear");
+  screen.println("Initialized");
+  screen.print("MAC "); screen.println(WiFi.macAddress());
+  screen.display();
+
 }
   
 
 void loop() {
 
-  value = encoder.getCount();
-  if (value != last) {
-    last = value;
-
-    // value -20 --> 20
-    value =  min(20,max(-20, value));
-    encoder.setCount(value);
-
-    int speed = -5 * value - (value>0?1:(value<0?-1:0)) * 155;
-
-
-    send(speed);
-    display_value(value/2);
-
-  }
-  
   btn1.loop();
+  btn2.loop();
+  btn3.loop();
 
 }
 
