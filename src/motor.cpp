@@ -1,7 +1,13 @@
 #include <Arduino.h>
 
+#if defined(ESP32)
 #include "WiFi.h"
- #include <esp_now.h>
+#include <esp_now.h>
+#include <analogWrite.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <espnow.h>
+#endif
 
 // uint8_t remoteAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
 uint8_t remoteAddress[] = {0x8C, 0xAA, 0xB5, 0x86, 0x87, 0xE4}; // TTGO LoRa
@@ -25,24 +31,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&mess, incomingData, sizeof(mess));
   Serial.print("Bytes received: ");
   Serial.println(len);
-  // Serial.print("Char: ");
-  // Serial.println(mess.a);
-  // Serial.print("Int: ");
-  // Serial.println(mess.b);
-  // Serial.print("Float: ");
-  // Serial.println(mess.c);
-  // Serial.print("String: ");
-  // Serial.println(mess.d);
-  // Serial.print("Bool: ");
-  // Serial.println(mess.e);
-  // Serial.println();
 
   target_speed = mess.b;
   Serial.print("target_speed: "); Serial.println(target_speed);
 
 }
-
-#include <analogWrite.h>
 
 int INA = 2;
 int INB = 15;
@@ -56,7 +49,7 @@ void setup(void) {
   Serial.println(WiFi.macAddress());
 
   // Init ESP-NOW
-  if (esp_now_init() != ESP_OK) {
+  if (esp_now_init() != 0) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
