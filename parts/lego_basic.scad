@@ -61,7 +61,7 @@ ROOF_THICKNESS = 1; // [0.1:0.01:10]
 WALL_THICKNESS = 1.5; // [0.15:0.01:15]
 
 // diameter of the studs (solid cylinders) on top of a brick (mm)
-STUD_DIAMETER = 4.8*1.05; // [0.48:0.01:48]
+STUD_DIAMETER = 4.8*1.075; // [0.48:0.01:48]
 
 // height of the studs (solid cylinders) on top of a brick (mm)
 STUD_HEIGHT = 1.8; // [0.18:0.01:18]
@@ -84,7 +84,7 @@ fudge = 0.01;               // Amount to expand some dimensions to ensure manifo
 
 
 
-brick(2,1,1, true, true);
+// brick(2,2,1, true, true);
 
 /*
    Module to make a simple rectangular LEGO compatible brick
