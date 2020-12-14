@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include "utils.h"
 
 #define SSD1306
 
@@ -101,15 +102,6 @@ Button2 btn3(BUTTON_3);
 #include <esp_now.h>
 
 
-typedef struct message {
-  char a[32];
-  int b;
-  float c;
-  String d;
-  bool e;
-} message;
-
-template<class T> inline Print &operator <<(Print &obj, T arg) { obj.print(arg); return obj; }
 
 
 class ControlledDevice {
@@ -123,9 +115,10 @@ class ControlledDevice {
     uint8_t* address;
     int value;
     int last_value;
+    int sent_value;
 
     ControlledDevice(uint8_t* an_address, int a_cap, int a_multiplier, int an_offset) {
-      this->last_value = this->value = 0;
+      this->last_value = this->value = this->sent_value = 0;
       this->address = an_address;
       this->value_cap = a_cap;
       this->value_multiplier = a_multiplier;
@@ -143,7 +136,7 @@ class ControlledDevice {
       if (this->value != this->last_value) {
         // trigger change
         this->send_value();
-        display_value(this->value, this->last_value);
+        display_value(this->value, this->sent_value);
         this->last_value = this->value;
       }
     }
@@ -152,7 +145,7 @@ class ControlledDevice {
       if (this->value != this->last_value) {
         // trigger change
         this->send_value();
-        display_value(this->value, this->last_value);
+        display_value(this->value, this->sent_value);
         this->last_value = this->value;
       }
     }
@@ -161,16 +154,16 @@ class ControlledDevice {
       if (this->value != this->last_value) {
         // trigger change
         this->send_value();
-        display_value(this->value, this->last_value);
+        display_value(this->value, this->sent_value);
         this->last_value = this->value;
       }
     }
     void send_value(){
 
-      int value_to_send = this->value * this->value_multiplier + (this->value>0?1:(this->value<0?-1:0)) * this->value_offset;
-      this->mess.b = value_to_send;
+      this->sent_value = this->value * this->value_multiplier + (this->value>0?1:(this->value<0?-1:0)) * this->value_offset;
+      this->mess.b = this->sent_value;
 
-      Serial << "sending " << value_to_send << " (value " << this->value << ") "; 
+      Serial << "sending " << this->sent_value << " (value " << this->value << ") "; 
 
       // Send message via ESP-NOW
       esp_err_t result = esp_now_send(this->address, (uint8_t *) &this->mess, sizeof(this->mess));
@@ -180,16 +173,16 @@ class ControlledDevice {
 };
 
 
-
-
 // uint8_t ad[] =  {0xCC, 0x50, 0xE3, 0xA1, 0x3F, 0x50}; // DOIT
 // ControlledDevice cur_device(ad, 9, 5, 155);
 
-uint8_t ad[] =  {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
-ControlledDevice cur_device(ad, 9, 5, 155);
+ // TTGO T-Display (loco jaune)
+// uint8_t ad[] =  {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54};
+// ControlledDevice cur_device(ad, 9, 5, 155);
 
 // 24:A1:60:2E:07:89  WEMOS D1 Mini (1)
-// ControlledDevice cur_device(ad, 1, 255, 1);
+uint8_t ad[] =  {0x24, 0xA1, 0x60, 0x2E, 0x07, 0x89};
+ControlledDevice cur_device(ad, 9, 90, 223);
 
 
 void stop_handler(Button2& btn) {

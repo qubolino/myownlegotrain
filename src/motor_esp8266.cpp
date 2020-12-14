@@ -1,21 +1,11 @@
 #include <Arduino.h>
 
+#include "utils.h"
+
 #include <ESP8266WiFi.h>
 #include <espnow.h>
 
 
-// uint8_t remoteAddress[] = {0x24, 0x6F, 0x28, 0x96, 0x4F, 0x54}; // TTGO T-Display
-uint8_t remoteAddress[] = {0x8C, 0xAA, 0xB5, 0x86, 0x87, 0xE4}; // TTGO LoRa
-// uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA8, 0x3D, 0x94}; // DOIT
-uint8_t trainAddress[] =  {0xCC, 0x50, 0xE3, 0xA1, 0x3F, 0x50}; // DOIT
-
-typedef struct message {
-  char a[32];
-  int b;
-  float c;
-  String d;
-  bool e;
-} message;
 message mess;
 
 int target_speed = 0;
@@ -32,8 +22,8 @@ void OnDataRecv(uint8_t * mac, uint8_t *incomingData, uint8_t len) {
 
 }
 
-int INA = 4;
-int INB = 5;
+int INA = 4;  // D2
+int INB = 5;  // D1
 
 
 void setup(void) {

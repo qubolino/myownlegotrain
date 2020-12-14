@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "utils.h"
 
 #include <Servo.h>
 Servo servo;
@@ -17,13 +18,6 @@ int angle = 0;
 #include <esp_now.h>
 #endif
 
-typedef struct message {
-  char a[32];
-  int b;
-  float c;
-  String d;
-  bool e;
-} message;
 message mess;
 
 // callback function that will be executed when data is received
